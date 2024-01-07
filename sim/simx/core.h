@@ -22,11 +22,11 @@
 #include <memory>
 #include <set>
 #include <simobject.h>
+#include <mem.h>
 #include "debug.h"
 #include "types.h"
 #include "arch.h"
 #include "decode.h"
-#include "mem.h"
 #include "warp.h"
 #include "pipeline.h"
 #include "cache_sim.h"
@@ -40,19 +40,25 @@
 
 namespace vortex {
 
-class Cluster;
+class Socket;
+
+using TraceSwitch = Mux<pipeline_trace_t*>;
 
 class Core : public SimObject<Core> {
 public:
   struct PerfStats {
     uint64_t cycles;
     uint64_t instrs;
+    uint64_t sched_idle;
+    uint64_t sched_stalls;
     uint64_t ibuf_stalls;
     uint64_t scrb_stalls;
-    uint64_t alu_stalls;
-    uint64_t lsu_stalls;
-    uint64_t fpu_stalls;
-    uint64_t sfu_stalls;
+    uint64_t scrb_alu;
+    uint64_t scrb_fpu;
+    uint64_t scrb_lsu;
+    uint64_t scrb_sfu;
+    uint64_t scrb_wctl;
+    uint64_t scrb_csrs;
     uint64_t ifetches;
     uint64_t loads;
     uint64_t stores;
@@ -62,12 +68,16 @@ public:
     PerfStats() 
       : cycles(0)
       , instrs(0)
+      , sched_idle(0)
+      , sched_stalls(0)
       , ibuf_stalls(0)
       , scrb_stalls(0)
-      , alu_stalls(0)
-      , lsu_stalls(0)
-      , fpu_stalls(0)
-      , sfu_stalls(0)
+      , scrb_alu(0)
+      , scrb_fpu(0)
+      , scrb_lsu(0)
+      , scrb_sfu(0)
+      , scrb_wctl(0)
+      , scrb_csrs(0)
       , ifetches(0)
       , loads(0)
       , stores(0)
@@ -84,10 +94,9 @@ public:
 
   Core(const SimContext& ctx, 
        uint32_t core_id, 
-       Cluster* cluster,
+       Socket* socket,
        const Arch &arch, 
-       const DCRS &dcrs,
-       SharedMem::Ptr  sharedmem);
+       const DCRS &dcrs);
 
   ~Core();
 
@@ -103,6 +112,10 @@ public:
 
   uint32_t id() const {
     return core_id_;
+  }
+
+  Socket* socket() const {
+    return socket_;
   }
 
   const Arch& arch() const {
@@ -153,6 +166,7 @@ private:
   void cout_flush();
 
   uint32_t core_id_;
+  Socket* socket_;
   const Arch& arch_;
   const DCRS &dcrs_;
   
@@ -167,13 +181,13 @@ private:
   std::vector<Operand::Ptr> operands_;
   std::vector<Dispatcher::Ptr> dispatchers_;
   std::vector<ExeUnit::Ptr> exe_units_;
-  SharedMem::Ptr sharedmem_;
+  SharedMem::Ptr shared_mem_;
+  std::vector<SMemDemux::Ptr> smem_demuxs_;
 
   PipelineLatch fetch_latch_;
   PipelineLatch decode_latch_;
   
   HashTable<pipeline_trace_t*> pending_icache_;
-  std::vector<pipeline_trace_t*> committed_traces_;
   WarpMask active_warps_;
   WarpMask stalled_warps_;
   uint64_t issued_instrs_;
@@ -188,9 +202,10 @@ private:
   
   PerfStats perf_stats_;
   
-  Cluster* cluster_;
+  std::vector<TraceSwitch::Ptr> commit_arbs_;
 
   uint32_t commit_exe_;
+  uint32_t ibuffer_idx_;
 
   friend class Warp;
   friend class LsuUnit;
