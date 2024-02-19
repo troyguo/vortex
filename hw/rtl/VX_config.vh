@@ -136,6 +136,18 @@
 `endif
 `endif
 
+`ifdef L2_ENABLE
+`define L2_LINE_SIZE `MEM_BLOCK_SIZE
+`else
+`define L2_LINE_SIZE `L1_LINE_SIZE
+`endif
+
+`ifdef L3_ENABLE
+`define L3_LINE_SIZE `MEM_BLOCK_SIZE
+`else
+`define L3_LINE_SIZE `L2_LINE_SIZE
+`endif
+
 `ifdef XLEN_64
 
 `ifndef STARTUP_ADDR
@@ -189,6 +201,10 @@
 
 `ifndef STALL_TIMEOUT
 `define STALL_TIMEOUT (100000 * (1 ** (`L2_ENABLED + `L3_ENABLED)))
+`endif
+
+`ifndef SV_DPI
+`define DPI_DISABLE
 `endif
 
 `ifndef FPU_FPNEW

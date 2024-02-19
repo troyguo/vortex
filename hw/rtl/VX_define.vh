@@ -291,16 +291,11 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-`ifdef L2_ENABLE
-`define L2_LINE_SIZE	        `MEM_BLOCK_SIZE
-`else
-`define L2_LINE_SIZE	        `L1_LINE_SIZE
+`ifdef ICACHE_ENABLE
+`define L1_ENABLE
 `endif
-
-`ifdef L3_ENABLE
-`define L3_LINE_SIZE	        `MEM_BLOCK_SIZE
-`else
-`define L3_LINE_SIZE	        `L2_LINE_SIZE
+`ifdef DCACHE_ENABLE
+`define L1_ENABLE
 `endif
 
 `define VX_MEM_BYTEEN_WIDTH     `L3_LINE_SIZE   
