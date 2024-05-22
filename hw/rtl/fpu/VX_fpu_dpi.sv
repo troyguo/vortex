@@ -17,8 +17,8 @@
 
 module VX_fpu_dpi import VX_fpu_pkg::*; #( 
     parameter NUM_LANES = 1,
-    parameter TAGW      = 1,
-    parameter OUT_REG   = 0
+    parameter TAG_WIDTH = 1,
+    parameter OUT_BUF   = 0
 ) (
     input wire clk,
     input wire reset,
@@ -26,9 +26,9 @@ module VX_fpu_dpi import VX_fpu_pkg::*; #(
     input wire  valid_in,
     output wire ready_in,
 
-    input wire [NUM_LANES-1:0] lane_mask,
+    input wire [NUM_LANES-1:0] mask_in,
 
-    input wire [TAGW-1:0] tag_in,
+    input wire [TAG_WIDTH-1:0] tag_in,
     
     input wire [`INST_FPU_BITS-1:0] op_type,
     input wire [`INST_FMT_BITS-1:0] fmt,
@@ -42,7 +42,7 @@ module VX_fpu_dpi import VX_fpu_pkg::*; #(
     output wire has_fflags,
     output wire [`FP_FLAGS_BITS-1:0] fflags,
 
-    output wire [TAGW-1:0] tag_out,
+    output wire [TAG_WIDTH-1:0] tag_out,
 
     input wire  ready_out,
     output wire valid_out
@@ -54,11 +54,11 @@ module VX_fpu_dpi import VX_fpu_pkg::*; #(
     localparam NUM_FPC     = 4;
     localparam FPC_BITS    = `LOG2UP(NUM_FPC);
 
-    localparam RSP_DATAW = (NUM_LANES * `XLEN) + 1 + $bits(fflags_t) + TAGW;
+    localparam RSP_DATAW = (NUM_LANES * `XLEN) + 1 + $bits(fflags_t) + TAG_WIDTH;
     
     wire [NUM_FPC-1:0] per_core_ready_in;
     wire [NUM_FPC-1:0][NUM_LANES-1:0][`XLEN-1:0] per_core_result;
-    wire [NUM_FPC-1:0][TAGW-1:0] per_core_tag_out;
+    wire [NUM_FPC-1:0][TAG_WIDTH-1:0] per_core_tag_out;
     reg  [NUM_FPC-1:0] per_core_ready_out;
     wire [NUM_FPC-1:0] per_core_valid_out;    
     wire [NUM_FPC-1:0] per_core_has_fflags;  
@@ -66,7 +66,7 @@ module VX_fpu_dpi import VX_fpu_pkg::*; #(
 
     wire div_ready_in, sqrt_ready_in;
     wire [NUM_LANES-1:0][`XLEN-1:0] div_result, sqrt_result;
-    wire [TAGW-1:0] div_tag_out, sqrt_tag_out;
+    wire [TAG_WIDTH-1:0] div_tag_out, sqrt_tag_out;
     wire div_ready_out, sqrt_ready_out;
     wire div_valid_out, sqrt_valid_out;    
     wire div_has_fflags, sqrt_has_fflags;  
@@ -193,10 +193,10 @@ module VX_fpu_dpi import VX_fpu_pkg::*; #(
         end
 
         fflags_t fflags_merged;
-        `FPU_MERGE_FFLAGS(fflags_merged, fflags_fma, lane_mask, NUM_LANES);
+        `FPU_MERGE_FFLAGS(fflags_merged, fflags_fma, mask_in, NUM_LANES);
 
         VX_shift_register #(
-            .DATAW  (1 + TAGW + NUM_LANES * `XLEN + $bits(fflags_t)),
+            .DATAW  (1 + TAG_WIDTH + NUM_LANES * `XLEN + $bits(fflags_t)),
             .DEPTH  (`LATENCY_FMA),
             .RESETW (1)
         ) shift_reg (
@@ -232,10 +232,10 @@ module VX_fpu_dpi import VX_fpu_pkg::*; #(
         end
 
         fflags_t fflags_merged;
-        `FPU_MERGE_FFLAGS(fflags_merged, fflags_fdiv, lane_mask, NUM_LANES);
+        `FPU_MERGE_FFLAGS(fflags_merged, fflags_fdiv, mask_in, NUM_LANES);
 
         VX_shift_register #(
-            .DATAW  (1 + TAGW + NUM_LANES * `XLEN + $bits(fflags_t)),
+            .DATAW  (1 + TAG_WIDTH + NUM_LANES * `XLEN + $bits(fflags_t)),
             .DEPTH  (`LATENCY_FDIV),
             .RESETW (1)
         ) shift_reg (
@@ -271,10 +271,10 @@ module VX_fpu_dpi import VX_fpu_pkg::*; #(
         end
 
         fflags_t fflags_merged;
-        `FPU_MERGE_FFLAGS(fflags_merged, fflags_fsqrt, lane_mask, NUM_LANES);
+        `FPU_MERGE_FFLAGS(fflags_merged, fflags_fsqrt, mask_in, NUM_LANES);
 
         VX_shift_register #(
-            .DATAW  (1 + TAGW + NUM_LANES * `XLEN + $bits(fflags_t)),
+            .DATAW  (1 + TAG_WIDTH + NUM_LANES * `XLEN + $bits(fflags_t)),
             .DEPTH  (`LATENCY_FSQRT),
             .RESETW (1)
         ) shift_reg (
@@ -335,10 +335,10 @@ module VX_fpu_dpi import VX_fpu_pkg::*; #(
         end
 
         fflags_t fflags_merged;
-        `FPU_MERGE_FFLAGS(fflags_merged, fflags_fcvt, lane_mask, NUM_LANES);
+        `FPU_MERGE_FFLAGS(fflags_merged, fflags_fcvt, mask_in, NUM_LANES);
 
         VX_shift_register #(
-            .DATAW  (1 + TAGW + NUM_LANES * `XLEN + $bits(fflags_t)),
+            .DATAW  (1 + TAG_WIDTH + NUM_LANES * `XLEN + $bits(fflags_t)),
             .DEPTH  (`LATENCY_FCVT),
             .RESETW (1)
         ) shift_reg (
@@ -416,12 +416,12 @@ module VX_fpu_dpi import VX_fpu_pkg::*; #(
         end
 
         fflags_t fflags_merged;
-        `FPU_MERGE_FFLAGS(fflags_merged, fflags_fncp, lane_mask, NUM_LANES);
+        `FPU_MERGE_FFLAGS(fflags_merged, fflags_fncp, mask_in, NUM_LANES);
 
         wire has_fflags_fncp = (frm >= 6) || is_fcmp;
 
         VX_shift_register #(
-            .DATAW  (1 + TAGW + 1 + NUM_LANES * `XLEN + $bits(fflags_t)),
+            .DATAW  (1 + TAG_WIDTH + 1 + NUM_LANES * `XLEN + $bits(fflags_t)),
             .DEPTH  (`LATENCY_FNCP),
             .RESETW (1)
         ) shift_reg (
@@ -445,7 +445,7 @@ module VX_fpu_dpi import VX_fpu_pkg::*; #(
         .NUM_INPUTS (2),
         .DATAW      (RSP_DATAW), 
         .ARBITER    ("R"),
-        .OUT_REG    (0)
+        .OUT_BUF    (0)
     ) div_sqrt_arb (
         .clk       (clk),
         .reset     (reset),
@@ -471,7 +471,7 @@ module VX_fpu_dpi import VX_fpu_pkg::*; #(
         .NUM_INPUTS (NUM_FPC),
         .DATAW      (RSP_DATAW), 
         .ARBITER    ("R"),
-        .OUT_REG    (OUT_REG)
+        .OUT_BUF    (OUT_BUF)
     ) rsp_arb (
         .clk       (clk),
         .reset     (reset),

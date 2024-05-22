@@ -1,6 +1,7 @@
 #include "tests.h"
 #include <stdio.h>
 #include <algorithm>
+#include <VX_config.h>
 #include <vx_intrinsics.h>
 #include <vx_print.h>
 #include <vx_spawn.h>
@@ -45,33 +46,31 @@ int test_global_memory() {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-int* smem_addr = (int*)SMEM_BASE_ADDR;
+int* lmem_addr = (int*)LMEM_BASE_ADDR;
 
-int smem_buffer[8];
+int lmem_buffer[8];
 
-void __attribute__((noinline)) do_smem_wr() {
+void __attribute__((noinline)) do_lmem_wr() {
 	unsigned tid = vx_thread_id();
-	smem_addr[tid] = 65 + tid;
+	lmem_addr[tid] = 65 + tid;
 }
 
-void __attribute__((noinline)) do_smem_rd() {
+void __attribute__((noinline)) do_lmem_rd() {
 	unsigned tid = vx_thread_id();
-	smem_buffer[tid] = smem_addr[tid];
+	lmem_buffer[tid] = lmem_addr[tid];
 }
 
-int test_shared_memory() {
-	static const int SHARED_MEM_SZ = 8;
-
-	PRINTF("Shared Memory Test\n");	
+int test_local_memory() {
+	PRINTF("Local Memory Test\n");
 
 	int num_threads = std::min(vx_num_threads(), 8);
 	int tmask = make_full_tmask(num_threads);
-	vx_tmc(tmask);	
-	do_smem_wr();
-	do_smem_rd();
+	vx_tmc(tmask);
+	do_lmem_wr();
+	do_lmem_rd();
 	vx_tmc_one();
 
-	return check_error(smem_buffer, 0, num_threads);
+	return check_error(lmem_buffer, 0, num_threads);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -88,7 +87,7 @@ int test_tmc() {
 
 	int num_threads = std::min(vx_num_threads(), 8);
 	int tmask = make_full_tmask(num_threads);
-	vx_tmc(tmask);	
+	vx_tmc(tmask);
 	do_tmc();
 	vx_tmc_one();
 
@@ -147,7 +146,7 @@ int dvg_buffer[4];
 void __attribute__((noinline)) __attribute__((optimize("O1"))) do_divergence() {
 	int tid = vx_thread_id();
 	int cond1 = tid < 2;
-	int sp1 = vx_split(cond1);	
+	int sp1 = vx_split(cond1);
 	if (cond1) {
 		{
 			int cond2 = tid < 1;
@@ -245,9 +244,9 @@ void __attribute__((noinline)) do_serial() {
 }
 
 int test_serial() {
-	PRINTF("Serial Test\n");	
+	PRINTF("Serial Test\n");
 	int num_threads = std::min(vx_num_threads(), 8);
-	int tmask = make_full_tmask(num_threads);	
+	int tmask = make_full_tmask(num_threads);
 	vx_tmc(tmask);
 	do_serial();
 	vx_tmc_one();
@@ -259,10 +258,10 @@ int test_serial() {
 
 int tmask_buffer[8];
 
-int __attribute__((noinline)) do_tmask() {					
+int __attribute__((noinline)) do_tmask() {
 	int tid = vx_thread_id();
 	int tmask = make_select_tmask(tid);
-	int cur_tmask = vx_thread_mask();
+	int cur_tmask = vx_active_threads();
 	tmask_buffer[tid] = (cur_tmask == tmask) ? (65 + tid) : 0;
 	return tid + 1;
 }
@@ -270,17 +269,17 @@ int __attribute__((noinline)) do_tmask() {
 int test_tmask() {
 	PRINTF("Thread Mask Test\n");
 
-	// activate all thread to populate shared variables
+	// activate all thread
 	vx_tmc(-1);
 
 	int num_threads = std::min(vx_num_threads(), 8);
 	int tid = 0;
 
-l_start:	
+l_start:
 	int tmask = make_select_tmask(tid);
-	vx_tmc(tmask);	
-	tid = do_tmask();	
-	if (tid < num_threads)		
+	vx_tmc(tmask);
+	tid = do_tmask();
+	if (tid < num_threads)
 		goto l_start;
 	vx_tmc_one();
 
@@ -297,7 +296,7 @@ void barrier_kernel() {
 	unsigned wid = vx_warp_id();
 	for (int i = 0; i <= (wid * 256); ++i) {
 		++barrier_stall;
-	}	
+	}
 	barrier_buffer[wid] = 65 + wid;
 	vx_barrier(0, barrier_ctr);
 	vx_tmc(0 == wid);
@@ -309,7 +308,7 @@ int test_barrier() {
 	barrier_ctr = num_warps;
 	barrier_stall = 0;
 	vx_wspawn(num_warps, barrier_kernel);
-	barrier_kernel();	
+	barrier_kernel();
 	return check_error(barrier_buffer, 0, num_warps);
 }
 

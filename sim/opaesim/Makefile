@@ -1,16 +1,13 @@
-XLEN ?= 32
+include ../common.mk
+
 DESTDIR ?= $(CURDIR)
-HW_DIR = $(abspath ../../hw)
-COMMON_DIR = $(abspath ../common)
-THIRD_PARTY_DIR = $(abspath ../../third_party)
-RTL_DIR = $(HW_DIR)/rtl
-DPI_DIR = $(HW_DIR)/dpi
-AFU_DIR = $(RTL_DIR)/afu/opae
-SCRIPT_DIR = $(HW_DIR)/scripts
+
+SRC_DIR := $(VORTEX_HOME)/sim/opaesim
+AFU_DIR := $(RTL_DIR)/afu/opae
 
 CXXFLAGS += -std=c++11 -Wall -Wextra -Wfatal-errors -Wno-array-bounds
 CXXFLAGS += -fPIC -Wno-maybe-uninitialized
-CXXFLAGS += -I$(CURDIR) -I$(HW_DIR) -I$(COMMON_DIR) -I$(DESTDIR)
+CXXFLAGS += -I$(SRC_DIR) -I$(ROOT_DIR)/hw -I$(COMMON_DIR) -I$(DESTDIR)
 CXXFLAGS += -I/$(THIRD_PARTY_DIR)/softfloat/source/include
 CXXFLAGS += -I/$(THIRD_PARTY_DIR)
 CXXFLAGS += -DXLEN_$(XLEN)
@@ -19,14 +16,9 @@ LDFLAGS += -shared $(THIRD_PARTY_DIR)/softfloat/build/Linux-x86_64-GCC/softfloat
 LDFLAGS += -L$(THIRD_PARTY_DIR)/ramulator -lramulator -pthread
 
 # control RTL debug tracing states
-DBG_TRACE_FLAGS += -DDBG_TRACE_CORE_PIPELINE  
-DBG_TRACE_FLAGS += -DDBG_TRACE_CORE_ICACHE
-DBG_TRACE_FLAGS += -DDBG_TRACE_CORE_DCACHE
-DBG_TRACE_FLAGS += -DDBG_TRACE_CORE_MEM
-DBG_TRACE_FLAGS += -DDBG_TRACE_CACHE_BANK 
-DBG_TRACE_FLAGS += -DDBG_TRACE_CACHE_MSHR
-DBG_TRACE_FLAGS += -DDBG_TRACE_CACHE_TAG
-DBG_TRACE_FLAGS += -DDBG_TRACE_CACHE_DATA
+DBG_TRACE_FLAGS += -DDBG_TRACE_PIPELINE
+DBG_TRACE_FLAGS += -DDBG_TRACE_MEM
+DBG_TRACE_FLAGS += -DDBG_TRACE_CACHE
 DBG_TRACE_FLAGS += -DDBG_TRACE_AFU
 DBG_TRACE_FLAGS += -DDBG_TRACE_SCOPE
 DBG_TRACE_FLAGS += -DDBG_TRACE_GBAR
@@ -57,7 +49,7 @@ DBG_FLAGS += -DDEBUG_LEVEL=$(DEBUG) -DVCD_OUTPUT $(DBG_TRACE_FLAGS)
 
 SRCS = $(COMMON_DIR)/util.cpp $(COMMON_DIR)/mem.cpp $(COMMON_DIR)/rvfloats.cpp
 SRCS += $(DPI_DIR)/util_dpi.cpp $(DPI_DIR)/float_dpi.cpp
-SRCS += $(CURDIR)/fpga.cpp $(CURDIR)/opae_sim.cpp
+SRCS += $(SRC_DIR)/fpga.cpp $(SRC_DIR)/opae_sim.cpp
 
 RTL_PKGS = $(AFU_DIR)/local_mem_cfg_pkg.sv $(AFU_DIR)/ccip/ccip_if_pkg.sv
 RTL_PKGS += $(RTL_DIR)/VX_gpu_pkg.sv $(RTL_DIR)/fpu/VX_fpu_pkg.sv
@@ -67,7 +59,7 @@ ifneq (,$(findstring FPU_FPNEW,$(CONFIGS)))
 	RTL_PKGS += $(THIRD_PARTY_DIR)/fpnew/src/fpnew_pkg.sv $(THIRD_PARTY_DIR)/fpnew/src/common_cells/src/cf_math_pkg $(THIRD_PARTY_DIR)/fpnew/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv
 	FPU_INCLUDE += -I$(THIRD_PARTY_DIR)/fpnew/src/common_cells/include -I$(THIRD_PARTY_DIR)/fpnew/src/common_cells/src -I$(THIRD_PARTY_DIR)/fpnew/src/fpu_div_sqrt_mvp/hdl -I$(THIRD_PARTY_DIR)/fpnew/src
 endif
-RTL_INCLUDE = -I$(RTL_DIR) -I$(DPI_DIR) -I$(RTL_DIR)/libs -I$(RTL_DIR)/interfaces -I$(RTL_DIR)/core -I$(RTL_DIR)/mem -I$(RTL_DIR)/cache $(FPU_INCLUDE)
+RTL_INCLUDE = -I$(SRC_DIR) -I$(RTL_DIR) -I$(DPI_DIR) -I$(RTL_DIR)/libs -I$(RTL_DIR)/interfaces -I$(RTL_DIR)/core -I$(RTL_DIR)/mem -I$(RTL_DIR)/cache $(FPU_INCLUDE)
 RTL_INCLUDE += -I$(AFU_DIR) -I$(AFU_DIR)/ccip
 
 TOP = vortex_afu_shim
@@ -78,7 +70,7 @@ VL_FLAGS += --x-initial unique --x-assign unique
 VL_FLAGS += -DSIMULATION -DSV_DPI
 VL_FLAGS += -DXLEN_$(XLEN)
 VL_FLAGS += $(CONFIGS)
-VL_FLAGS += verilator.vlt
+VL_FLAGS += $(SRC_DIR)/verilator.vlt
 VL_FLAGS += $(RTL_INCLUDE)
 VL_FLAGS += $(RTL_PKGS)
 VL_FLAGS += $(DBG_SCOPE_FLAGS)
@@ -94,7 +86,7 @@ VL_FLAGS += -j $(THREADS)
 ifdef DEBUG
 	VL_FLAGS += --trace --trace-structs $(DBG_FLAGS)
 	CXXFLAGS += -g -O0 $(DBG_FLAGS)
-else    
+else
 	VL_FLAGS += -DNDEBUG
 	CXXFLAGS += -O3 -DNDEBUG
 endif
@@ -116,7 +108,7 @@ endif
 VL_FLAGS += -DNOPAE
 CXXFLAGS += -DNOPAE
 
-PROJECT = libopae-c-sim.so
+PROJECT := libopae-c-sim.so
 
 all: $(DESTDIR)/$(PROJECT)
 

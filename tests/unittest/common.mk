@@ -1,7 +1,5 @@
-VORTEX_RT_PATH ?= $(realpath ../../../runtime)
 
 CXXFLAGS += -std=c++11 -Wall -Wextra -pedantic -Wfatal-errors
-
 CXXFLAGS += -I$(VORTEX_RT_PATH)/common
 
 # Debugigng
@@ -20,7 +18,7 @@ run:
 	./$(PROJECT)
 
 clean:
-	rm -rf $(PROJECT) *.o .depend
+	rm -rf $(PROJECT) *.o *.log .depend
 
 clean-all: clean
 	rm -rf *.elf *.bin *.dump

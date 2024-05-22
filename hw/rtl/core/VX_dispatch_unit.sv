@@ -16,7 +16,7 @@
 module VX_dispatch_unit import VX_gpu_pkg::*; #(    
     parameter BLOCK_SIZE = 1,
     parameter NUM_LANES  = 1,
-    parameter OUT_REG    = 0,
+    parameter OUT_BUF    = 0,
     parameter MAX_FANOUT = `MAX_FANOUT
 ) ( 
     input  wire             clk,
@@ -29,7 +29,8 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
     VX_execute_if.master    execute_if [BLOCK_SIZE]
 
 );
-    `STATIC_ASSERT ((`NUM_THREADS == NUM_LANES  * (`NUM_THREADS / NUM_LANES)), ("invalid parameter"))
+    `STATIC_ASSERT (`IS_DIVISBLE(`ISSUE_WIDTH, BLOCK_SIZE), ("invalid parameter"))
+    `STATIC_ASSERT (`IS_DIVISBLE(`NUM_THREADS, NUM_LANES), ("invalid parameter"))    
     localparam BLOCK_SIZE_W = `LOG2UP(BLOCK_SIZE);
     localparam NUM_PACKETS  = `NUM_THREADS / NUM_LANES;
     localparam PID_BITS     = `CLOG2(NUM_PACKETS);
@@ -39,7 +40,7 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
     localparam ISSUE_W      = `LOG2UP(`ISSUE_WIDTH);
     localparam IN_DATAW     = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + 1 + `XLEN + `XLEN + `NR_BITS + `NT_WIDTH + (3 * `NUM_THREADS * `XLEN);
     localparam OUT_DATAW    = `UUID_WIDTH + `NW_WIDTH + NUM_LANES + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + 1 + `XLEN + `XLEN + `NR_BITS + `NT_WIDTH + (3 * NUM_LANES * `XLEN) + PID_WIDTH + 1 + 1;
-    localparam FANOUT_ENABLE= (`NUM_THREADS > (MAX_FANOUT + MAX_FANOUT/2));
+    localparam FANOUT_ENABLE= (`NUM_THREADS > MAX_FANOUT);
 
     localparam DATA_TMASK_OFF = IN_DATAW - (`UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS);
     localparam DATA_REGS_OFF = 0;
@@ -220,8 +221,8 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
 
         VX_elastic_buffer #(
             .DATAW   (OUT_DATAW),
-            .SIZE    (`OUT_REG_TO_EB_SIZE(OUT_REG)),
-            .OUT_REG (`OUT_REG_TO_EB_REG(OUT_REG))
+            .SIZE    (`TO_OUT_BUF_SIZE(OUT_BUF)),
+            .OUT_REG (`TO_OUT_BUF_REG(OUT_BUF))
         ) buf_out (
             .clk       (clk),
             .reset     (buf_out_reset),

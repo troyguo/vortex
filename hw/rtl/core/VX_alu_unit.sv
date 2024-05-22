@@ -1,10 +1,10 @@
 // Copyright © 2019-2023
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 // http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,14 +18,14 @@ module VX_alu_unit #(
 ) (
     input wire              clk,
     input wire              reset,
-    
+
     // Inputs
     VX_dispatch_if.slave    dispatch_if [`ISSUE_WIDTH],
 
     // Outputs
     VX_commit_if.master     commit_if [`ISSUE_WIDTH],
     VX_branch_ctl_if.master branch_ctl_if [`NUM_ALU_BLOCKS]
-);   
+);
 
     `UNUSED_PARAM (CORE_ID)
     localparam BLOCK_SIZE   = `NUM_ALU_BLOCKS;
@@ -38,47 +38,47 @@ module VX_alu_unit #(
 
     VX_execute_if #(
         .NUM_LANES (NUM_LANES)
-    ) execute_if[BLOCK_SIZE]();
-
-    `RESET_RELAY (dispatch_reset, reset);
+    ) per_block_execute_if[BLOCK_SIZE]();
 
     VX_dispatch_unit #(
         .BLOCK_SIZE (BLOCK_SIZE),
         .NUM_LANES  (NUM_LANES),
-        .OUT_REG    (PARTIAL_BW ? 1 : 0)
+        .OUT_BUF    (PARTIAL_BW ? 1 : 0)
     ) dispatch_unit (
         .clk        (clk),
-        .reset      (dispatch_reset),
+        .reset      (reset),
         .dispatch_if(dispatch_if),
-        .execute_if (execute_if)
+        .execute_if (per_block_execute_if)
     );
 
     VX_commit_if #(
         .NUM_LANES (NUM_LANES)
-    ) commit_block_if[BLOCK_SIZE]();
+    ) per_block_commit_if[BLOCK_SIZE]();
 
     for (genvar block_idx = 0; block_idx < BLOCK_SIZE; ++block_idx) begin
 
-        wire is_muldiv_op;
+        `RESET_RELAY (block_reset, reset);
+
+        wire is_muldiv_op = `EXT_M_ENABLED && `INST_ALU_IS_M(per_block_execute_if[block_idx].data.op_mod);
 
         VX_execute_if #(
             .NUM_LANES (NUM_LANES)
         ) int_execute_if();
 
-        assign int_execute_if.valid = execute_if[block_idx].valid && ~is_muldiv_op;
-        assign int_execute_if.data = execute_if[block_idx].data;
-
         VX_commit_if #(
             .NUM_LANES (NUM_LANES)
         ) int_commit_if();
 
-        `RESET_RELAY (int_reset, reset);
+        assign int_execute_if.valid = per_block_execute_if[block_idx].valid && ~is_muldiv_op;
+        assign int_execute_if.data = per_block_execute_if[block_idx].data;
 
-        VX_int_unit #(
+        `RESET_RELAY (int_reset, block_reset);
+
+        VX_alu_int #(
             .CORE_ID   (CORE_ID),
             .BLOCK_IDX (block_idx),
             .NUM_LANES (NUM_LANES)
-        ) int_unit (
+        ) alu_int (
             .clk        (clk),
             .reset      (int_reset),
             .execute_if (int_execute_if),
@@ -88,22 +88,20 @@ module VX_alu_unit #(
 
     `ifdef EXT_M_ENABLE
 
-        assign is_muldiv_op = `INST_ALU_IS_M(execute_if[block_idx].data.op_mod);
-
-        `RESET_RELAY (mdv_reset, reset);
-
         VX_execute_if #(
             .NUM_LANES (NUM_LANES)
         ) mdv_execute_if();
-        
-        assign mdv_execute_if.valid = execute_if[block_idx].valid && is_muldiv_op;
-        assign mdv_execute_if.data = execute_if[block_idx].data;
 
         VX_commit_if #(
             .NUM_LANES (NUM_LANES)
         ) mdv_commit_if();
 
-        VX_muldiv_unit #(
+        assign mdv_execute_if.valid = per_block_execute_if[block_idx].valid && is_muldiv_op;
+        assign mdv_execute_if.data = per_block_execute_if[block_idx].data;
+
+        `RESET_RELAY (mdv_reset, block_reset);
+
+        VX_alu_muldiv #(
             .CORE_ID   (CORE_ID),
             .NUM_LANES (NUM_LANES)
         ) mdv_unit (
@@ -111,27 +109,26 @@ module VX_alu_unit #(
             .reset      (mdv_reset),
             .execute_if (mdv_execute_if),
             .commit_if  (mdv_commit_if)
-        );       
-       
-        assign execute_if[block_idx].ready = is_muldiv_op ? mdv_execute_if.ready : int_execute_if.ready;
-
-    `else
-
-        assign is_muldiv_op = 0;
-        assign execute_if[block_idx].ready = int_execute_if.ready;
+        );
 
     `endif
+
+        assign per_block_execute_if[block_idx].ready =
+        `ifdef EXT_M_ENABLE
+            is_muldiv_op ? mdv_execute_if.ready :
+        `endif
+            int_execute_if.ready;
 
         // send response
 
         VX_stream_arb #(
             .NUM_INPUTS (RSP_ARB_SIZE),
             .DATAW      (RSP_ARB_DATAW),
-            .OUT_REG    (PARTIAL_BW ? 1 : 3)
+            .OUT_BUF    (PARTIAL_BW ? 1 : 3)
         ) rsp_arb (
             .clk       (clk),
-            .reset     (reset),
-            .valid_in  ({                
+            .reset     (block_reset),
+            .valid_in  ({
             `ifdef EXT_M_ENABLE
                 mdv_commit_if.valid,
             `endif
@@ -149,23 +146,21 @@ module VX_alu_unit #(
             `endif
                 int_commit_if.data
             }),
-            .data_out  (commit_block_if[block_idx].data),
-            .valid_out (commit_block_if[block_idx].valid), 
-            .ready_out (commit_block_if[block_idx].ready),            
+            .data_out  (per_block_commit_if[block_idx].data),
+            .valid_out (per_block_commit_if[block_idx].valid),
+            .ready_out (per_block_commit_if[block_idx].ready),
             `UNUSED_PIN (sel_out)
         );
     end
 
-    `RESET_RELAY (commit_reset, reset);
-
     VX_gather_unit #(
         .BLOCK_SIZE (BLOCK_SIZE),
         .NUM_LANES  (NUM_LANES),
-        .OUT_REG    (PARTIAL_BW ? 3 : 0)
+        .OUT_BUF    (PARTIAL_BW ? 3 : 0)
     ) gather_unit (
         .clk           (clk),
-        .reset         (commit_reset),
-        .commit_in_if  (commit_block_if),
+        .reset         (reset),
+        .commit_in_if  (per_block_commit_if),
         .commit_out_if (commit_if)
     );
 

@@ -1,10 +1,10 @@
 // Copyright © 2019-2023
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 // http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,7 +16,7 @@
 
 using namespace vortex;
 
-ProcessorImpl::ProcessorImpl(const Arch& arch) 
+ProcessorImpl::ProcessorImpl(const Arch& arch)
   : arch_(arch)
   , clusters_(arch.num_clusters())
 {
@@ -36,16 +36,16 @@ ProcessorImpl::ProcessorImpl(const Arch& arch)
     log2ceil(L2_LINE_SIZE),   // W
     log2ceil(L3_NUM_WAYS),    // A
     log2ceil(L3_NUM_BANKS),   // B
-    XLEN,                     // address bits      
+    XLEN,                     // address bits
     1,                        // number of ports
-    uint8_t(arch.num_clusters()), // request size 
+    uint8_t(arch.num_clusters()), // request size
     true,                     // write-through
     false,                    // write response
-    L3_MSHR_SIZE,             // mshr
+    L3_MSHR_SIZE,             // mshr size
     2,                        // pipeline latency
     }
-  );        
-  
+  );
+
   // connect L3 memory ports
   l3cache_->MemReqPort.bind(&memsim_->MemReqPort);
   memsim_->MemRspPort.bind(&l3cache_->MemRspPort);
@@ -83,40 +83,36 @@ void ProcessorImpl::attach_ram(RAM* ram) {
   }
 }
 
-int ProcessorImpl::run(bool riscv_test) {
+int ProcessorImpl::run() {
   SimPlatform::instance().reset();
   this->reset();
-  
+
   bool done;
-  Word exitcode = 0;
+  int exitcode = 0;
   do {
     SimPlatform::instance().tick();
     done = true;
     for (auto cluster : clusters_) {
       if (cluster->running()) {
-        Word ec;   
-        if (cluster->check_exit(&ec, riscv_test)) {
-          exitcode |= ec;
-        } else {
-          done = false;
-        }
+        done = false;
+        continue;
       }
+      exitcode |= cluster->get_exitcode();
     }
     perf_mem_latency_ += perf_mem_pending_reads_;
   } while (!done);
 
   return exitcode;
 }
- 
+
 void ProcessorImpl::reset() {
   perf_mem_reads_ = 0;
   perf_mem_writes_ = 0;
   perf_mem_latency_ = 0;
   perf_mem_pending_reads_ = 0;
-  
 }
 
-void ProcessorImpl::write_dcr(uint32_t addr, uint32_t value) {
+void ProcessorImpl::dcr_write(uint32_t addr, uint32_t value) {
   dcrs_.write(addr, value);
 }
 
@@ -131,7 +127,7 @@ ProcessorImpl::PerfStats ProcessorImpl::perf_stats() const {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-Processor::Processor(const Arch& arch) 
+Processor::Processor(const Arch& arch)
   : impl_(new ProcessorImpl(arch))
 {}
 
@@ -143,10 +139,10 @@ void Processor::attach_ram(RAM* mem) {
   impl_->attach_ram(mem);
 }
 
-int Processor::run(bool riscv_test) {
-  return impl_->run(riscv_test);
+int Processor::run() {
+  return impl_->run();
 }
 
-void Processor::write_dcr(uint32_t addr, uint32_t value) {
-  return impl_->write_dcr(addr, value);
+void Processor::dcr_write(uint32_t addr, uint32_t value) {
+  return impl_->dcr_write(addr, value);
 }

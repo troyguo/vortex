@@ -16,7 +16,7 @@
 module VX_gather_unit import VX_gpu_pkg::*; #(
     parameter BLOCK_SIZE = 1,
     parameter NUM_LANES  = 1,
-    parameter OUT_REG    = 0
+    parameter OUT_BUF    = 0
 ) ( 
     input  wire         clk,
     input  wire         reset,
@@ -28,6 +28,8 @@ module VX_gather_unit import VX_gpu_pkg::*; #(
     VX_commit_if.master commit_out_if [`ISSUE_WIDTH]
 
 );
+    `STATIC_ASSERT (`IS_DIVISBLE(`ISSUE_WIDTH, BLOCK_SIZE), ("invalid parameter"))
+    `STATIC_ASSERT (`IS_DIVISBLE(`NUM_THREADS, NUM_LANES), ("invalid parameter"))
     localparam BLOCK_SIZE_W = `LOG2UP(BLOCK_SIZE);
     localparam PID_BITS     = `CLOG2(`NUM_THREADS / NUM_LANES);
     localparam PID_WIDTH    = `UP(PID_BITS);
@@ -81,8 +83,8 @@ module VX_gather_unit import VX_gpu_pkg::*; #(
 
         VX_elastic_buffer #(
             .DATAW   (DATAW),
-            .SIZE    (`OUT_REG_TO_EB_SIZE(OUT_REG)),
-            .OUT_REG (`OUT_REG_TO_EB_REG(OUT_REG))
+            .SIZE    (`TO_OUT_BUF_SIZE(OUT_BUF)),
+            .OUT_REG (`TO_OUT_BUF_REG(OUT_BUF))
         ) out_buf (
             .clk        (clk),
             .reset      (commit_out_reset),

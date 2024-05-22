@@ -1,4 +1,7 @@
-all: stub rtlsim simx opae
+ROOT_DIR := $(realpath ..)
+include $(ROOT_DIR)/config.mk
+
+all: stub rtlsim simx opae xrt
 
 stub:
 	$(MAKE) -C stub

@@ -1,5 +1,4 @@
 [![Build Status](https://travis-ci.com/vortexgpgpu/vortex.svg?branch=master)](https://travis-ci.com/vortexgpgpu/vortex)
-[![codecov](https://codecov.io/gh/vortexgpgpu/vortex/branch/master/graph/badge.svg)](https://codecov.io/gh/vortexgpgpu/vortex)
 
 # Vortex GPGPU
 
@@ -12,10 +11,10 @@ Vortex is a full-stack open-source RISC-V GPGPU.
     - configurable number of cores, warps, and threads.
     - configurable number of ALU, FPU, LSU, and SFU units per core.
     - configurable pipeline issue width.
-    - optional shared memory, L1, L2, and L3 caches.
-- Software: 
+    - optional local memory, L1, L2, and L3 caches.
+- Software:
     - OpenCL 1.2 Support.
-- Supported FPGAs: 
+- Supported FPGAs:
     - Altera Arria 10
     - Altera Stratix 10
     - Xilinx Alveo U50, U250, U280
@@ -47,19 +46,26 @@ More detailed build instructions can be found [here](docs/install_vortex.md).
 - [Ramulator](https://github.com/CMU-SAFARI/ramulator.git)
 - [Yosys](https://github.com/YosysHQ/yosys)
 - [Sv2v](https://github.com/zachjs/sv2v)
-### Install development tools 
+### Install development tools
     $ sudo apt-get install build-essential
+    $ sudo apt-get install binutils
+    $ sudo apt-get install python
+    $ sudo apt-get install uuid-dev
     $ sudo apt-get install git
 ### Install Vortex codebase
-    $ git clone --recursive https://github.com/vortexgpgpu/vortex.git
+    $ git clone --depth=1 --recursive https://github.com/vortexgpgpu/vortex.git
     $ cd Vortex
+### Configure your build folder
+    # By default, the toolchain default install location is the /opt folder and can be overridden by setting --tooldir.
+    $ mkdir build
+    $ cd build
+    $ ../configure --xlen=32 --tooldir=$HOME/tools
 ### Install prebuilt toolchain
-    By default, the toolchain will install to /opt folder which requires sudo access. 
-    You can install the toolchain to a different location of your choice by setting TOOLDIR (e.g. export TOOLDIR=$HOME/tools).
-    $ export TOOLDIR=/opt
     $ ./ci/toolchain_install.sh --all
+### set environment variables
+    # should always run before using the toolchain!
     $ source ./ci/toolchain_env.sh
-### Build Vortex sources
+### Building Vortex
     $ make -s
 ### Quick demo running vecadd OpenCL kernel on 2 cores
     $ ./ci/blackbox.sh --cores=2 --app=vecadd

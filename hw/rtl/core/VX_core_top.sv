@@ -32,13 +32,14 @@ module VX_core_top import VX_gpu_pkg::*; #(
     output wire [DCACHE_NUM_REQS-1:0]       dcache_req_rw,
     output wire [DCACHE_NUM_REQS-1:0][DCACHE_WORD_SIZE-1:0] dcache_req_byteen,
     output wire [DCACHE_NUM_REQS-1:0][DCACHE_ADDR_WIDTH-1:0] dcache_req_addr,
+    output wire [DCACHE_NUM_REQS-1:0][`ADDR_TYPE_WIDTH-1:0] dcache_req_atype,
     output wire [DCACHE_NUM_REQS-1:0][DCACHE_WORD_SIZE*8-1:0] dcache_req_data,
-    output wire [DCACHE_NUM_REQS-1:0][DCACHE_NOSM_TAG_WIDTH-1:0] dcache_req_tag,
+    output wire [DCACHE_NUM_REQS-1:0][DCACHE_TAG_WIDTH-1:0] dcache_req_tag,
     input  wire [DCACHE_NUM_REQS-1:0]       dcache_req_ready,
 
     input wire  [DCACHE_NUM_REQS-1:0]       dcache_rsp_valid,
     input wire  [DCACHE_NUM_REQS-1:0][DCACHE_WORD_SIZE*8-1:0] dcache_rsp_data,
-    input wire  [DCACHE_NUM_REQS-1:0][DCACHE_NOSM_TAG_WIDTH-1:0] dcache_rsp_tag,
+    input wire  [DCACHE_NUM_REQS-1:0][DCACHE_TAG_WIDTH-1:0] dcache_rsp_tag,
     output wire [DCACHE_NUM_REQS-1:0]       dcache_rsp_ready,
 
     output wire                             icache_req_valid,
@@ -92,7 +93,7 @@ module VX_core_top import VX_gpu_pkg::*; #(
 
     VX_mem_bus_if #(
         .DATA_SIZE (DCACHE_WORD_SIZE),
-        .TAG_WIDTH (DCACHE_NOSM_TAG_WIDTH)
+        .TAG_WIDTH (DCACHE_TAG_WIDTH)
     ) dcache_bus_if[DCACHE_NUM_REQS]();
 
     for (genvar i = 0; i < DCACHE_NUM_REQS; ++i) begin
@@ -100,6 +101,7 @@ module VX_core_top import VX_gpu_pkg::*; #(
         assign dcache_req_rw[i] = dcache_bus_if[i].req_data.rw;
         assign dcache_req_byteen[i] = dcache_bus_if[i].req_data.byteen;
         assign dcache_req_addr[i] = dcache_bus_if[i].req_data.addr;
+        assign dcache_req_atype[i] = dcache_bus_if[i].req_data.atype;
         assign dcache_req_data[i] = dcache_bus_if[i].req_data.data;
         assign dcache_req_tag[i] = dcache_bus_if[i].req_data.tag;
         assign dcache_bus_if[i].req_ready = dcache_req_ready[i];
@@ -122,6 +124,7 @@ module VX_core_top import VX_gpu_pkg::*; #(
     assign icache_req_data = icache_bus_if.req_data.data;
     assign icache_req_tag = icache_bus_if.req_data.tag;
     assign icache_bus_if.req_ready = icache_req_ready;
+    `UNUSED_VAR (icache_bus_if.req_data.atype)
 
     assign icache_bus_if.rsp_valid = icache_rsp_valid;
     assign icache_bus_if.rsp_data.tag = icache_rsp_tag;
@@ -134,7 +137,7 @@ module VX_core_top import VX_gpu_pkg::*; #(
     assign mem_perf_if.dcache  = '0;
     assign mem_perf_if.l2cache = '0;
     assign mem_perf_if.l3cache = '0;
-    assign mem_perf_if.smem    = '0;
+    assign mem_perf_if.lmem    = '0;
     assign mem_perf_if.mem     = '0;
 `endif
 

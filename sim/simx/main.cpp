@@ -1,10 +1,10 @@
 // Copyright © 2019-2023
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 // http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,6 +24,7 @@
 #include "constants.h"
 #include <util.h>
 #include "core.h"
+#include "VX_types.h"
 
 using namespace vortex;
 
@@ -87,24 +88,24 @@ int main(int argc, char **argv) {
     Arch arch(num_threads, num_warps, num_cores);
 
     // create memory module
-    RAM ram(RAM_PAGE_SIZE);
+    RAM ram(0, RAM_PAGE_SIZE);
 
     // create processor
     Processor processor(arch);
-  
+
     // attach memory module
-    processor.attach_ram(&ram); 
+    processor.attach_ram(&ram);
 
 	  // setup base DCRs
     const uint64_t startup_addr(STARTUP_ADDR);
-    processor.write_dcr(VX_DCR_BASE_STARTUP_ADDR0, startup_addr & 0xffffffff);
+    processor.dcr_write(VX_DCR_BASE_STARTUP_ADDR0, startup_addr & 0xffffffff);
   #if (XLEN == 64)
-    processor.write_dcr(VX_DCR_BASE_STARTUP_ADDR1, startup_addr >> 32);
+    processor.dcr_write(VX_DCR_BASE_STARTUP_ADDR1, startup_addr >> 32);
   #endif
-	  processor.write_dcr(VX_DCR_BASE_MPM_CLASS, 0);
+	  processor.dcr_write(VX_DCR_BASE_MPM_CLASS, 0);
 
     // load program
-    {      
+    {
       std::string program_ext(fileExtension(program));
       if (program_ext == "bin") {
         ram.loadBinImage(program, startup_addr);
@@ -117,12 +118,15 @@ int main(int argc, char **argv) {
     }
 
     // run simulation
-    exitcode = processor.run(riscv_test);
-  }   
+    exitcode = processor.run();
+    if (riscv_test) {
+      exitcode = (1 - exitcode);
+    }
+  }
 
   if (exitcode != 0) {
     std::cout << "*** error: exitcode=" << exitcode << std::endl;
-  } 
+  }
 
   return exitcode;
 }

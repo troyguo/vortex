@@ -1,10 +1,10 @@
 // Copyright © 2019-2023
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 // http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,37 +19,37 @@
 namespace vortex {
 
 class UUIDGenerator {
-public:    
+public:
     UUIDGenerator() : ids_(0) {}
     virtual ~UUIDGenerator() {}
 
-    uint32_t get_uuid(uint64_t PC) {
-        uint32_t id;
-        uint32_t ref;
+    uint32_t get_uuid(uint64_t /*PC*/) {
+        /*uint16_t id;
+        uint16_t ref;
         auto it = uuid_map_.find(PC);
         if (it != uuid_map_.end()) {
-            uint64_t value = it->second;
-            id  = value & 0xffff;
-            ref = value >> 16;
+            uint32_t value = it->second;
+            ref = value & 0xffff;
+            id  = value >> 16;
+            ++ref;
         } else {
+            ref = 0;
             id = ids_++;
-            ref = -1;
         }
-        ++ref;
-        uint64_t ret = (uint64_t(ref) << 16) | id;
-        uuid_map_[PC] = ret;
-        return ret;
+        uint32_t ret = (uint32_t(id) << 16) | ref;
+        uuid_map_[PC] = ret;*/
+        return ids_++;
     }
 
     void reset() {
-        uuid_map_.clear();
+        //uuid_map_.clear();
         ids_ = 0;
     }
 
 private:
 
-    std::unordered_map<uint64_t, uint32_t> uuid_map_;
-    uint32_t ids_;
+    //std::unordered_map<uint64_t, uint32_t> uuid_map_;
+    uint16_t ids_;
 };
 
 }

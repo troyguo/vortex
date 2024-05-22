@@ -45,10 +45,11 @@ module Vortex import VX_gpu_pkg::*; (
 );
 
 `ifdef PERF_ENABLE
-    VX_mem_perf_if mem_perf_if();
+    VX_mem_perf_if mem_perf_if();    
     assign mem_perf_if.icache  = 'x;
     assign mem_perf_if.dcache  = 'x;
     assign mem_perf_if.l2cache = 'x;
+    assign mem_perf_if.lmem    = 'x;
 `endif
 
     VX_mem_bus_if #(
@@ -78,8 +79,8 @@ module Vortex import VX_gpu_pkg::*; (
         .TAG_WIDTH      (L2_MEM_TAG_WIDTH),
         .WRITE_ENABLE   (1),
         .UUID_WIDTH     (`UUID_WIDTH),  
-        .CORE_OUT_REG   (2),
-        .MEM_OUT_REG    (2),
+        .CORE_OUT_BUF   (2),
+        .MEM_OUT_BUF    (2),
         .NC_ENABLE      (1),
         .PASSTHRU       (!`L3_ENABLED)
     ) l3cache (
@@ -101,6 +102,7 @@ module Vortex import VX_gpu_pkg::*; (
     assign mem_req_data  = mem_bus_if.req_data.data;
     assign mem_req_tag   = mem_bus_if.req_data.tag;
     assign mem_bus_if.req_ready = mem_req_ready;
+    `UNUSED_VAR (mem_bus_if.req_data.atype)
 
     assign mem_bus_if.rsp_valid = mem_rsp_valid;
     assign mem_bus_if.rsp_data.data  = mem_rsp_data;
@@ -192,7 +194,7 @@ module Vortex import VX_gpu_pkg::*; (
     
 `endif
 
-`ifdef DBG_TRACE_CORE_MEM
+`ifdef DBG_TRACE_MEM
     always @(posedge clk) begin
         if (mem_req_fire) begin
             if (mem_req_rw)

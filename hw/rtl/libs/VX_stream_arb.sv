@@ -20,8 +20,8 @@ module VX_stream_arb #(
     parameter DATAW         = 1,
     parameter `STRING ARBITER = "P",
     parameter MAX_FANOUT    = `MAX_FANOUT,
-    parameter OUT_REG       = 0 ,
-    parameter NUM_REQS      = (NUM_INPUTS + NUM_OUTPUTS - 1) / NUM_OUTPUTS,
+    parameter OUT_BUF       = 0 ,
+    parameter NUM_REQS      = `CDIV(NUM_INPUTS, NUM_OUTPUTS),
     parameter LOG_NUM_REQS  = `CLOG2(NUM_REQS),
     parameter NUM_REQS_W    = `UP(LOG_NUM_REQS)
 ) (
@@ -57,7 +57,7 @@ module VX_stream_arb #(
                     .DATAW       (DATAW),
                     .ARBITER     (ARBITER),
                     .MAX_FANOUT  (MAX_FANOUT),
-                    .OUT_REG     (OUT_REG)
+                    .OUT_BUF     (OUT_BUF)
                 ) arb_slice (
                     .clk       (clk),
                     .reset     (slice_reset),
@@ -71,11 +71,11 @@ module VX_stream_arb #(
                 );
             end
 
-        end else if (MAX_FANOUT != 0 && (NUM_INPUTS > (MAX_FANOUT + MAX_FANOUT/2))) begin
+        end else if (MAX_FANOUT != 0 && (NUM_INPUTS > MAX_FANOUT)) begin
 
             // (#inputs > max_fanout) and (#outputs == 1)
 
-            localparam NUM_BATCHES = (NUM_INPUTS + MAX_FANOUT - 1) / MAX_FANOUT;
+            localparam NUM_BATCHES = `CDIV(NUM_INPUTS, MAX_FANOUT);
             localparam LOG_NUM_REQS2 = `CLOG2(MAX_FANOUT);
             localparam LOG_NUM_REQS3 = `CLOG2(NUM_BATCHES);
 
@@ -101,7 +101,7 @@ module VX_stream_arb #(
                         .DATAW       (DATAW),
                         .ARBITER     (ARBITER),
                         .MAX_FANOUT  (MAX_FANOUT),
-                        .OUT_REG     (OUT_REG)
+                        .OUT_BUF     (OUT_BUF)
                     ) fanout_slice_arb (
                         .clk       (clk),
                         .reset     (slice_reset),
@@ -127,7 +127,7 @@ module VX_stream_arb #(
                 .DATAW       (DATAW + LOG_NUM_REQS2),
                 .ARBITER     (ARBITER),
                 .MAX_FANOUT  (MAX_FANOUT),
-                .OUT_REG     (OUT_REG)
+                .OUT_BUF     (OUT_BUF)
             ) fanout_join_arb (
                 .clk       (clk),
                 .reset     (reset),
@@ -180,8 +180,8 @@ module VX_stream_arb #(
 
             VX_elastic_buffer #(
                 .DATAW   (LOG_NUM_REQS + DATAW),
-                .SIZE    (`OUT_REG_TO_EB_SIZE(OUT_REG)),
-                .OUT_REG (`OUT_REG_TO_EB_REG(OUT_REG))
+                .SIZE    (`TO_OUT_BUF_SIZE(OUT_BUF)),
+                .OUT_REG (`TO_OUT_BUF_REG(OUT_BUF))
             ) out_buf (
                 .clk       (clk),
                 .reset     (reset),
@@ -214,7 +214,7 @@ module VX_stream_arb #(
                     .DATAW       (DATAW),
                     .ARBITER     (ARBITER),
                     .MAX_FANOUT  (MAX_FANOUT),
-                    .OUT_REG     (OUT_REG)
+                    .OUT_BUF     (OUT_BUF)
                 ) arb_slice (
                     .clk       (clk),
                     .reset     (slice_reset),
@@ -232,11 +232,11 @@ module VX_stream_arb #(
                 end
             end
 
-        end else if (MAX_FANOUT != 0 && (NUM_OUTPUTS > (MAX_FANOUT + MAX_FANOUT/2))) begin
+        end else if (MAX_FANOUT != 0 && (NUM_OUTPUTS > MAX_FANOUT)) begin
 
             // (#inputs == 1) and (#outputs > max_fanout)
 
-            localparam NUM_BATCHES = (NUM_OUTPUTS + MAX_FANOUT - 1) / MAX_FANOUT;
+            localparam NUM_BATCHES = `CDIV(NUM_OUTPUTS, MAX_FANOUT);
 
             wire [NUM_BATCHES-1:0]            valid_tmp;
             wire [NUM_BATCHES-1:0][DATAW-1:0] data_tmp;
@@ -248,7 +248,7 @@ module VX_stream_arb #(
                 .DATAW       (DATAW),
                 .ARBITER     (ARBITER),
                 .MAX_FANOUT  (MAX_FANOUT),
-                .OUT_REG     (OUT_REG)
+                .OUT_BUF     (OUT_BUF)
             ) fanout_fork_arb (
                 .clk       (clk),
                 .reset     (reset),
@@ -275,7 +275,7 @@ module VX_stream_arb #(
                     .DATAW       (DATAW),
                     .ARBITER     (ARBITER),
                     .MAX_FANOUT  (MAX_FANOUT),
-                    .OUT_REG     (OUT_REG)
+                    .OUT_BUF     (OUT_BUF)
                 ) fanout_slice_arb (
                     .clk       (clk),
                     .reset     (slice_reset),
@@ -321,8 +321,8 @@ module VX_stream_arb #(
             for (genvar i = 0; i < NUM_OUTPUTS; ++i) begin
                 VX_elastic_buffer #(
                     .DATAW    (DATAW),
-                    .SIZE     (`OUT_REG_TO_EB_SIZE(OUT_REG)),
-                    .OUT_REG  (`OUT_REG_TO_EB_REG(OUT_REG))
+                    .SIZE     (`TO_OUT_BUF_SIZE(OUT_BUF)),
+                    .OUT_REG  (`TO_OUT_BUF_REG(OUT_BUF))
                 ) out_buf (
                     .clk       (clk),
                     .reset     (reset),
@@ -348,8 +348,8 @@ module VX_stream_arb #(
 
             VX_elastic_buffer #(
                 .DATAW   (DATAW),
-                .SIZE    (`OUT_REG_TO_EB_SIZE(OUT_REG)),
-                .OUT_REG (`OUT_REG_TO_EB_REG(OUT_REG))
+                .SIZE    (`TO_OUT_BUF_SIZE(OUT_BUF)),
+                .OUT_REG (`TO_OUT_BUF_REG(OUT_BUF))
             ) out_buf (
                 .clk       (clk),
                 .reset     (out_buf_reset),
